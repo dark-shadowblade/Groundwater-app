@@ -1,45 +1,36 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
-import L from 'leaflet';
+import dynamic from 'next/dynamic';
 
-// ✅ Fix Leaflet marker icons
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl:
-    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-// ✅ Dynamically load Leaflet components (fixes "window is not defined")
-const MapContainer = dynamic(
-  () => import('react-leaflet').then(mod => mod.MapContainer),
-  { ssr: false }
-);
-const TileLayer = dynamic(
-  () => import('react-leaflet').then(mod => mod.TileLayer),
-  { ssr: false }
-);
-const Marker = dynamic(
-  () => import('react-leaflet').then(mod => mod.Marker),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import('react-leaflet').then(mod => mod.Popup),
-  { ssr: false }
+// Dynamically import the map component with no SSR
+const WaterLevelMap = dynamic(
+  () => import('./components/WaterLevelMap'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100%',
+        backgroundColor: '#f0f0f0'
+      }}>
+        <p>Loading map...</p>
+      </div>
+    )
+  }
 );
 
 export default function Home() {
   const [stations, setStations] = useState([]);
   const [waterLevels, setWaterLevels] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     fetch('/data/stations.json')
       .then(res => res.json())
       .then(setStations);
@@ -51,32 +42,34 @@ export default function Home() {
   const getStationLevels = (stationId) =>
     waterLevels.filter(w => w.station_id === stationId);
 
+  // Format timestamp for display
+  const formatDate = (timestamp) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (!isClient) {
+    return (
+      <div style={{ display: 'flex', height: '100vh' }}>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <p>Loading application...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
       {/* Left: Map */}
       <div style={{ flex: 1 }}>
-        <MapContainer
-          center={[19.8762, 75.3433]}
-          zoom={6}
-          style={{ width: '100%', height: '100%' }}
-        >
-          <TileLayer 
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
-          />
-          {stations.map(station => (
-            <Marker
-              key={station.id}
-              position={[station.lat, station.lon]}  // Fixed: changed lng to lon
-              eventHandlers={{ click: () => setSelectedStation(station) }}
-            >
-              <Popup>
-                <b>{station.name}</b><br />
-                {station.district}, {station.state}
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
+        <WaterLevelMap 
+          stations={stations} 
+          onStationSelect={setSelectedStation} 
+        />
       </div>
 
       {/* Right: Graph */}
@@ -86,7 +79,7 @@ export default function Home() {
             <h2>{selectedStation.name}</h2>
             <p>{selectedStation.district}, {selectedStation.state}</p>
             
-            <div style={{ width: '100%', height: 300 }}>
+            <div style={{ width: '100%', height: 300, marginTop: 20 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
                   data={getStationLevels(selectedStation.id)}
@@ -106,11 +99,11 @@ export default function Home() {
                   />
                   <Tooltip 
                     formatter={(value) => [`${value} m`, 'Water Level']}
-                    labelFormatter={(value) => `Date: ${new Date(value).toLocaleString()}`}
+                    labelFormatter={(value) => `Date: ${formatDate(value)}`}
                   />
                   <Line 
                     type="monotone" 
-                    dataKey="water_level_m"  // Fixed: changed water_level to water_level_m
+                    dataKey="water_level_m"
                     stroke="#0077cc" 
                     strokeWidth={2}
                     dot={{ r: 2 }}
@@ -120,10 +113,34 @@ export default function Home() {
               </ResponsiveContainer>
             </div>
             
-            <p>
-              ⚠️ Alerts:{' '}
+            <div style={{ marginTop: 20 }}>
+              <h3>Latest Readings</h3>
+              {getStationLevels(selectedStation.id)
+                .slice(-5)
+                .reverse()
+                .map((reading, index) => (
+                  <div key={index} style={{ 
+                    padding: '8px', 
+                    borderBottom: '1px solid #eee',
+                    display: 'flex',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span>{formatDate(reading.timestamp)}</span>
+                    <span style={{ fontWeight: 'bold' }}>{reading.water_level_m}m</span>
+                  </div>
+                ))}
+            </div>
+            
+            <p style={{ 
+              marginTop: 20, 
+              padding: '10px', 
+              backgroundColor: getStationLevels(selectedStation.id).some(d => d.water_level_m < 11) ? '#fff3cd' : '#d4edda',
+              border: getStationLevels(selectedStation.id).some(d => d.water_level_m < 11) ? '1px solid #ffeaa7' : '1px solid #c3e6cb',
+              borderRadius: '4px'
+            }}>
+              ⚠️ Status:{' '}
               {getStationLevels(selectedStation.id).some(d => d.water_level_m < 11)
-                ? 'Low Water Level Detected!'
+                ? 'Low Water Level Alert!'
                 : 'Normal Water Levels'}
             </p>
           </>
@@ -135,4 +152,4 @@ export default function Home() {
       </div>
     </div>
   );
-}
+                }
