@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "leaflet": "^1.9.4",
@@ -14,6 +15,10 @@
     "react-dom": "18.2.0",
     "react-leaflet": "^4.2.1",
     "recharts": "^2.8.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "eslint-config-next": "14.0.0"
   },
   "engines": {
     "node": "22.x"
