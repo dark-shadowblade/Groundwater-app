@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 import L from 'leaflet';
 
 // ✅ Fix Leaflet marker icons
@@ -56,15 +56,18 @@ export default function Home() {
       {/* Left: Map */}
       <div style={{ flex: 1 }}>
         <MapContainer
-          center={[25.5, 82]}
+          center={[19.8762, 75.3433]}
           zoom={6}
           style={{ width: '100%', height: '100%' }}
         >
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <TileLayer 
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+          />
           {stations.map(station => (
             <Marker
               key={station.id}
-              position={[station.lat, station.lng]}
+              position={[station.lat, station.lon]}  // Fixed: changed lng to lon
               eventHandlers={{ click: () => setSelectedStation(station) }}
             >
               <Popup>
@@ -81,26 +84,53 @@ export default function Home() {
         {selectedStation ? (
           <>
             <h2>{selectedStation.name}</h2>
-            <LineChart
-              width={400}
-              height={300}
-              data={getStationLevels(selectedStation.id)}
-            >
-              <CartesianGrid stroke="#ccc" />
-              <XAxis dataKey="timestamp" hide />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="water_level" stroke="#0077cc" />
-            </LineChart>
+            <p>{selectedStation.district}, {selectedStation.state}</p>
+            
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={getStationLevels(selectedStation.id)}
+                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid stroke="#f5f5f5" />
+                  <XAxis 
+                    dataKey="timestamp" 
+                    tick={{ fontSize: 12 }}
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getDate()}/${date.getMonth() + 1}`;
+                    }}
+                  />
+                  <YAxis 
+                    label={{ value: 'Water Level (m)', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip 
+                    formatter={(value) => [`${value} m`, 'Water Level']}
+                    labelFormatter={(value) => `Date: ${new Date(value).toLocaleString()}`}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="water_level_m"  // Fixed: changed water_level to water_level_m
+                    stroke="#0077cc" 
+                    strokeWidth={2}
+                    dot={{ r: 2 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            
             <p>
               ⚠️ Alerts:{' '}
-              {getStationLevels(selectedStation.id).some(d => d.water_level < 10)
-                ? 'Low Water Detected!'
-                : 'Normal'}
+              {getStationLevels(selectedStation.id).some(d => d.water_level_m < 11)
+                ? 'Low Water Level Detected!'
+                : 'Normal Water Levels'}
             </p>
           </>
         ) : (
-          <p>Click on a station marker to see details</p>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <p>Click on a station marker to see water level data</p>
+          </div>
         )}
       </div>
     </div>
