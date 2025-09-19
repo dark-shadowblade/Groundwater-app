@@ -18,11 +18,23 @@ h2 {
   color: #0077cc;
 }
 
+h3 {
+  color: #333;
+  margin-bottom: 10px;
+}
+
 p {
   font-size: 14px;
+  margin: 5px 0;
 }
 
 /* Customize recharts tooltip */
 .recharts-tooltip-wrapper {
   z-index: 1000;
+}
+
+.recharts-default-tooltip {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
 }
