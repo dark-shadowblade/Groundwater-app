@@ -1,0 +1,14 @@
+/* Global styles for your app */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+h2 {
+  margin-top: 0.5rem;
+  color: #0077cc;
+}
+
+p {
+  font-size: 14px;
+}
